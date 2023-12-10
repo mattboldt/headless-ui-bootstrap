@@ -1,93 +1,250 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import React, { Fragment, ReactComponentElement, useEffect, useRef, useState } from 'react'
+import axois from 'axios'
 import { Menu, Transition, Combobox } from '@headlessui/react'
 import { ChevronDownIcon, ChevronUpDownIcon, CheckIcon } from '@heroicons/react/20/solid'
 import './App.css'
 import './App.scss'
 
-const people = [
-  { value: 1, label: 'Wade Cooper' },
-  { value: 2, label: 'Arlene Mccoy' },
-  { value: 3, label: 'Devon Webb' },
-  { value: 4, label: 'Tom Cook' },
-  { value: 5, label: 'Tanya Fox' },
-  { value: 6, label: 'Hellen Schmidt' },
-]
+function useDebounce<T>(value: T, delay?: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay || 500)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
+
+const searchBusinesses = async (
+  query: string,
+  callback: Function = (_result: unknown) => {}
+): Promise<void> => {
+  const { data } = await axois.get('http://localhost:3000/businesses.json', {
+    params: { search: query },
+  })
+  callback(data)
+  return data
+}
+
+const searchUsers = async (
+  businessId: string | number,
+  query: string,
+  callback: Function = (_result: unknown) => {}
+): Promise<void> => {
+  const { data } = await axois.get('http://localhost:3000/users.json', {
+    params: { business_id: businessId, search: query },
+  })
+  callback(data)
+  return data
+}
+
+type Business = {
+  id: string
+  name: string
+}
+
+type User = {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+}
 
 function App() {
-  const [selected, setSelected] = useState(people[0])
-  const [query, setQuery] = useState('')
+  const [selectedBusiness, setSelectedBusiness] = useState<Option | null>(null)
+
+  const onSelectBusiness = (option: Option) => {
+    setSelectedBusiness(option)
+  }
+
+  const fetchBusinesses = (value: string, callback: Function) => {
+    if (value === '' || value.length < 2) return
+
+    return searchBusinesses(value, callback)
+  }
+
+  const fetchUsers = (value: string, callback: Function) => {
+    if (selectedBusiness === null) return
+
+    return searchUsers(selectedBusiness.value, value, callback)
+  }
+
+  const mapBusinessOptions = (businesses: Business[]) =>
+    businesses.map((business) => ({
+      value: business.id,
+      label: business.name,
+      name: business.name,
+    }))
+
+  const mapUserOptions = (users: User[]) =>
+    users.map((user) => ({
+      value: user.id,
+      label: `${user.first_name} ${user.last_name} (${user.email})`,
+      name: `${user.first_name} ${user.last_name}`,
+      email: user.email,
+    }))
 
   return (
     <div className="container pt-5">
-      <BsCombobox options={people} displayValue={(option) => option.label} />
-
-      <div className="p-5">Gap</div>
-      <Menu as="div" className="dropdown">
-        <Menu.Button className="btn btn-primary dropdown-toggle" type="button">
-          Options
-        </Menu.Button>
-
-        <Transition
-          as={Fragment}
-          enter="transition ease-out duration-100"
-          enterFrom="transform opacity-0 scale-95"
-          enterTo="transform opacity-100 scale-100"
-          leave="transition ease-in duration-75"
-          leaveFrom="transform opacity-100 scale-100"
-          leaveTo="transform opacity-0 scale-95">
-          <Menu.Items as="ul" className="dropdown-menu show">
-            <Menu.Item as="li">
-              {({ active }) => (
-                <a href="#" className={`dropdown-item ${active ? 'active' : ''}`}>
-                  Edit
-                </a>
-              )}
-            </Menu.Item>
-            <Menu.Item as="li">
-              {({ active }) => (
-                <a href="#" className={`dropdown-item ${active ? 'active' : ''}`}>
-                  Duplicate
-                </a>
-              )}
-            </Menu.Item>
-
-            <Menu.Item as="li">
-              {({ active }) => (
-                <a href="#" className={`dropdown-item ${active ? 'active' : ''}`}>
-                  Archive
-                </a>
-              )}
-            </Menu.Item>
-            <Menu.Item as="li">
-              {({ active }) => (
-                <a href="#" className={`dropdown-item ${active ? 'active' : ''}`}>
-                  Move
-                </a>
-              )}
-            </Menu.Item>
-
-            <Menu.Item as="li">
-              {({ active }) => (
-                <a href="#" className={`dropdown-item ${active ? 'active' : ''}`}>
-                  Delete
-                </a>
-              )}
-            </Menu.Item>
-          </Menu.Items>
-        </Transition>
-      </Menu>
+      <div className="row mb-3">
+        <div className="col-md-12">
+          <BsAsyncCombobox
+            onSelect={onSelectBusiness}
+            fetchData={fetchBusinesses}
+            mapOptions={mapBusinessOptions}
+          />
+        </div>
+      </div>
+      <div className="row">
+        <div className="col-md-12">
+          <BsAsyncCombobox
+            key={`users-${selectedBusiness?.value}`}
+            fetchData={fetchUsers}
+            mapOptions={mapUserOptions}
+            disabled={!selectedBusiness}
+            fetchOnLoad={!!selectedBusiness}
+            optionDisplay={(option) => (
+              <>
+                <span className="d-block">{option.name}</span>
+                <small className="text-muted"> ({option.email})</small>
+              </>
+            )}
+          />
+        </div>
+      </div>
     </div>
   )
 }
 
-const BsCombobox = ({ options = [], displayValue = (option) => option.label }) => {
-  const [selected, setSelected] = useState(options[0])
+type Option = {
+  value: string | number
+  label: string
+  [key: string]: string | number
+}
+
+type Callback = React.Dispatch<React.SetStateAction<Option | null>> | ((arg: Option) => void)
+
+type BsAsyncComboboxProps = {
+  debounce?: number
+  minimumChars?: number
+  fetchData: (query: string, callback: (result: Option[]) => void) => void
+  onSelect?: Callback
+  onInputChange?: (value: string) => void
+  mapOptions: (options: any[]) => Option[]
+  optionDisplay?: (option: Option) => string | React.ReactElement
+  fetchOnLoad?: boolean
+  [key: string]: any
+}
+
+type BsComboboxProps = {
+  options?: Option[]
+  selectedOption?: Option | null
+  onInputChange?: (value: string) => void
+  onSelect?: (option: Option) => void
+  displayValue?: (option: Option) => string
+  optionDisplay?: (option: Option) => string | React.ReactElement
+  emptyOptions?: string | React.ReactElement
+  filter?: boolean
+  loading?: boolean
+  disabled?: boolean
+}
+
+const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
+  debounce = 500,
+  minimumChars = 2,
+  fetchData,
+  mapOptions = (options: unknown) => options as Option[],
+  optionDisplay = (option: Option) => option.label,
+  onInputChange: theirOnInputChange = (_value: string) => {},
+  onSelect: theirOnSelect = (_option: Option) => {},
+  fetchOnLoad = false,
+  ...rest
+}) => {
+  const [query, setQuery] = useState('')
+  const debouncedQuery = useDebounce(query, debounce)
+
+  const [options, setOptions] = useState<Option[]>([])
+  const [selected, setSelected] = useState<Option | null>(null)
+  const mappedOptions = mapOptions(options)
+
+  const [loading, setLoading] = useState(false)
+
+  const emptyOptions =
+    debouncedQuery !== '' && loading
+      ? 'Loading...'
+      : debouncedQuery === ''
+      ? 'Search by name or email'
+      : 'No results found.'
+
+  useEffect(() => {
+    if (debouncedQuery === '' || debouncedQuery.length < minimumChars) {
+      if (!fetchOnLoad) return
+    }
+
+    setLoading(true)
+    fetchData(debouncedQuery, (result) => {
+      setOptions(result)
+      setLoading(false)
+    })
+  }, [debouncedQuery, setOptions, setLoading, fetchData])
+
+  const ourOnInputChange = (value: string) => {
+    setLoading(value !== '')
+    setQuery(value)
+    theirOnInputChange(value)
+  }
+
+  const ourOnSelect = (option: any) => {
+    setSelected(option)
+    theirOnSelect(option)
+  }
+
+  return (
+    <BsCombobox
+      options={mappedOptions}
+      selectedOption={selected}
+      onInputChange={ourOnInputChange}
+      onSelect={ourOnSelect}
+      displayValue={(option) => option?.label}
+      optionDisplay={optionDisplay}
+      filter={false}
+      loading={loading}
+      {...rest}
+    />
+  )
+}
+
+const BsCombobox: React.FC<BsComboboxProps> = ({
+  options = [],
+  selectedOption,
+  onInputChange = (_value: string) => {},
+  onSelect = (_value: Option) => {},
+  displayValue = (option: Option) => option.label,
+  optionDisplay = (option: Option) => option.label,
+  emptyOptions,
+  filter = true,
+  loading = false,
+  disabled = false,
+}) => {
   const [query, setQuery] = useState('')
 
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setQuery(event.target.value)
+    onInputChange(event.target.value)
+  }
+
+  const handleSelect = (option: Option) => {
+    onSelect(option)
+  }
+
   const filteredOptions =
-    query === ''
+    !filter || query === ''
       ? options
-      : options.filter((option) =>
+      : options.filter((option: Option) =>
           option.label
             .toLowerCase()
             .replace(/\s+/g, '')
@@ -96,12 +253,17 @@ const BsCombobox = ({ options = [], displayValue = (option) => option.label }) =
 
   return (
     <Menu as="div" className="position-relative">
-      <Combobox immediate value={selected} onChange={setSelected}>
+      <Combobox
+        immediate
+        disabled={disabled}
+        value={selectedOption}
+        onChange={handleSelect}
+        by={(a, b) => a?.value === b?.value}>
         <div className="position-relative">
           <Combobox.Input
             className="form-control"
             displayValue={displayValue}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={handleInputChange}
           />
           <Combobox.Button className="position-absolute top-0 end-0 btn btn-link">
             <ChevronUpDownIcon className="h-5 w-5 text-dark" aria-hidden="true" />
@@ -113,11 +275,20 @@ const BsCombobox = ({ options = [], displayValue = (option) => option.label }) =
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
           afterLeave={() => setQuery('')}>
-          <Combobox.Options className="dropdown-menu show w-100">
-            {filteredOptions.length === 0 && query !== '' ? (
-              <div className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                Nothing found.
-              </div>
+          <Combobox.Options className="dropdown-menu show w-100 overflow-y-auto max-height-300">
+            {loading || filteredOptions.length === 0 ? (
+              <li className="relative cursor-default select-none px-4 py-2 text-gray-700">
+                {!!loading && (
+                  <div
+                    className="spinner-border spinner-border-sm text-secondary me-2"
+                    role="status"></div>
+                )}
+                {emptyOptions
+                  ? emptyOptions
+                  : filteredOptions.length === 0 && query !== ''
+                  ? 'Nothing found.'
+                  : ''}
+              </li>
             ) : (
               filteredOptions.map((option) => (
                 <Combobox.Option
@@ -136,7 +307,7 @@ const BsCombobox = ({ options = [], displayValue = (option) => option.label }) =
                       href="#">
                       <span
                         className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                        {option.label}
+                        {optionDisplay(option)}
                       </span>
                       {selected ? (
                         <span

@@ -36,3 +36,7 @@ $input-border-radius: 0.5rem;
   //   @extend .rounded;
   // }
 }
+
+.max-height-300 {
+  max-height: 300px;
+}
