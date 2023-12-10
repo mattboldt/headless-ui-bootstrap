@@ -67,29 +67,31 @@ function App() {
   const fetchBusinesses = (value: string, callback: Function) => {
     if (value === '' || value.length < 2) return
 
-    return searchBusinesses(value, callback)
+    return searchBusinesses(value, (result: Business[]) => {
+      callback(
+        result.map((business) => ({
+          value: business.id,
+          label: business.name,
+          name: business.name,
+        }))
+      )
+    })
   }
 
   const fetchUsers = (value: string, callback: Function) => {
     if (selectedBusiness === null) return
 
-    return searchUsers(selectedBusiness.value, value, callback)
+    return searchUsers(selectedBusiness.value, value, (result: User[]) => {
+      callback(
+        result.map((user) => ({
+          value: user.id,
+          label: `${user.first_name} ${user.last_name} (${user.email})`,
+          name: `${user.first_name} ${user.last_name}`,
+          email: user.email,
+        }))
+      )
+    })
   }
-
-  const mapBusinessOptions = (businesses: Business[]) =>
-    businesses.map((business) => ({
-      value: business.id,
-      label: business.name,
-      name: business.name,
-    }))
-
-  const mapUserOptions = (users: User[]) =>
-    users.map((user) => ({
-      value: user.id,
-      label: `${user.first_name} ${user.last_name} (${user.email})`,
-      name: `${user.first_name} ${user.last_name}`,
-      email: user.email,
-    }))
 
   return (
     <div className="container pt-5">
@@ -99,7 +101,6 @@ function App() {
             selectedOption={selectedBusiness}
             onSelect={onSelectBusiness}
             fetchData={fetchBusinesses}
-            mapOptions={mapBusinessOptions}
           />
         </div>
       </div>
@@ -108,7 +109,6 @@ function App() {
           <BsAsyncCombobox
             key={`users-${selectedBusiness?.value}`}
             fetchData={fetchUsers}
-            mapOptions={mapUserOptions}
             disabled={!selectedBusiness}
             fetchOnLoad={!!selectedBusiness}
             optionDisplay={(option) => (
@@ -138,7 +138,6 @@ type BsAsyncComboboxProps = {
   fetchData: (query: string, callback: (result: Option[]) => void) => void
   onSelect?: Callback
   onInputChange?: (value: string) => void
-  mapOptions: (options: any[]) => Option[]
   optionDisplay?: (option: Option) => string | React.ReactElement
   fetchOnLoad?: boolean
   [key: string]: any
@@ -162,7 +161,6 @@ const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
   minimumChars = 2,
   selectedOption = null,
   fetchData,
-  mapOptions = (options: unknown) => options as Option[],
   optionDisplay = (option: Option) => option.label,
   onInputChange: theirOnInputChange = (_value: string) => {},
   onSelect: theirOnSelect = (_option: Option) => {},
@@ -174,7 +172,6 @@ const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
 
   const [options, setOptions] = useState<Option[]>([])
   const [selected, setSelected] = useState<Option | null>(selectedOption)
-  const mappedOptions = mapOptions(options)
 
   const [loading, setLoading] = useState(false)
 
@@ -210,7 +207,7 @@ const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
 
   return (
     <BsCombobox
-      options={mappedOptions}
+      options={options}
       selectedOption={selected}
       onInputChange={ourOnInputChange}
       onSelect={ourOnSelect}
@@ -332,7 +329,7 @@ const BsCombobox: React.FC<BsComboboxProps> = ({
                             className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
                               active ? 'text-white' : 'text-teal-600'
                             }`}>
-                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                            {/* <CheckIcon className="h-5 w-5" aria-hidden="true" /> */}
                           </span>
                         ) : null}
                       </a>
