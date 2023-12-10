@@ -55,7 +55,10 @@ type User = {
 }
 
 function App() {
-  const [selectedBusiness, setSelectedBusiness] = useState<Option | null>(null)
+  const [selectedBusiness, setSelectedBusiness] = useState<Option | null>({
+    value: 'cool-business',
+    label: 'Cool Business',
+  })
 
   const onSelectBusiness = (option: Option) => {
     setSelectedBusiness(option)
@@ -93,6 +96,7 @@ function App() {
       <div className="row mb-3">
         <div className="col-md-12">
           <BsAsyncCombobox
+            selectedOption={selectedBusiness}
             onSelect={onSelectBusiness}
             fetchData={fetchBusinesses}
             mapOptions={mapBusinessOptions}
@@ -156,6 +160,7 @@ type BsComboboxProps = {
 const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
   debounce = 500,
   minimumChars = 2,
+  selectedOption = null,
   fetchData,
   mapOptions = (options: unknown) => options as Option[],
   optionDisplay = (option: Option) => option.label,
@@ -168,7 +173,7 @@ const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
   const debouncedQuery = useDebounce(query, debounce)
 
   const [options, setOptions] = useState<Option[]>([])
-  const [selected, setSelected] = useState<Option | null>(null)
+  const [selected, setSelected] = useState<Option | null>(selectedOption)
   const mappedOptions = mapOptions(options)
 
   const [loading, setLoading] = useState(false)
@@ -213,6 +218,16 @@ const BsAsyncCombobox: React.FC<BsAsyncComboboxProps> = ({
       optionDisplay={optionDisplay}
       filter={false}
       loading={loading}
+      emptyOptions={
+        <li className="relative cursor-default select-none px-4 py-2 text-gray-700">
+          {!!loading && (
+            <div
+              className="spinner-border spinner-border-sm text-secondary me-2"
+              role="status"></div>
+          )}
+          Nothing found
+        </li>
+      }
       {...rest}
     />
   )
@@ -251,6 +266,21 @@ const BsCombobox: React.FC<BsComboboxProps> = ({
             .includes(query.toLowerCase().replace(/\s+/g, ''))
         )
 
+  if (!emptyOptions) {
+    emptyOptions = (
+      <li className="relative cursor-default select-none px-4 py-2 text-gray-700">
+        {!!loading && (
+          <div className="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+        )}
+        {emptyOptions
+          ? emptyOptions
+          : filteredOptions.length === 0 && query !== ''
+          ? 'Nothing found.'
+          : ''}
+      </li>
+    )
+  }
+
   return (
     <Menu as="div" className="position-relative">
       <Combobox
@@ -276,52 +306,39 @@ const BsCombobox: React.FC<BsComboboxProps> = ({
           leaveTo="opacity-0"
           afterLeave={() => setQuery('')}>
           <Combobox.Options className="dropdown-menu show w-100 overflow-y-auto max-height-300">
-            {loading || filteredOptions.length === 0 ? (
-              <li className="relative cursor-default select-none px-4 py-2 text-gray-700">
-                {!!loading && (
-                  <div
-                    className="spinner-border spinner-border-sm text-secondary me-2"
-                    role="status"></div>
-                )}
-                {emptyOptions
-                  ? emptyOptions
-                  : filteredOptions.length === 0 && query !== ''
-                  ? 'Nothing found.'
-                  : ''}
-              </li>
-            ) : (
-              filteredOptions.map((option) => (
-                <Combobox.Option
-                  key={option.value}
-                  className={({ active }) =>
-                    `relative cursor-default select-none ${
-                      active ? 'bg-teal-600 text-white' : 'text-gray-900'
-                    }`
-                  }
-                  value={option}>
-                  {({ selected, active }) => (
-                    <a
-                      className={`dropdown-item ${
-                        selected ? 'active fw-bold' : active ? 'bg-primary-subtle text-dark' : ''
-                      }`}
-                      href="#">
-                      <span
-                        className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                        {optionDisplay(option)}
-                      </span>
-                      {selected ? (
+            {filteredOptions.length === 0
+              ? emptyOptions
+              : filteredOptions.map((option) => (
+                  <Combobox.Option
+                    key={option.value}
+                    className={({ active }) =>
+                      `relative cursor-default select-none ${
+                        active ? 'bg-teal-600 text-white' : 'text-gray-900'
+                      }`
+                    }
+                    value={option}>
+                    {({ selected, active }) => (
+                      <a
+                        className={`dropdown-item ${
+                          selected ? 'active fw-bold' : active ? 'bg-primary-subtle text-dark' : ''
+                        }`}
+                        href="#">
                         <span
-                          className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
-                            active ? 'text-white' : 'text-teal-600'
-                          }`}>
-                          <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                          className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                          {optionDisplay(option)}
                         </span>
-                      ) : null}
-                    </a>
-                  )}
-                </Combobox.Option>
-              ))
-            )}
+                        {selected ? (
+                          <span
+                            className={`absolute inset-y-0 left-0 flex items-center pl-3 ${
+                              active ? 'text-white' : 'text-teal-600'
+                            }`}>
+                            <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        ) : null}
+                      </a>
+                    )}
+                  </Combobox.Option>
+                ))}
           </Combobox.Options>
         </Transition>
       </Combobox>
