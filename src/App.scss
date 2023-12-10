@@ -1,0 +1,38 @@
+$font-family-sans-serif: Inter var, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+  Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, 'Apple Color Emoji',
+  'Segoe UI Emoji', Segoe UI Symbol, 'Noto Color Emoji';
+
+$btn-font-weight: 500;
+$btn-font-size: 0.875rem;
+$btn-line-height: 1.25;
+$btn-padding-x: 0.875rem;
+$btn-padding-y: 0.65rem;
+$btn-border-radius: 0.5rem;
+
+$dropdown-font-size: 0.875rem;
+$dropdown-line-height: 1.25;
+$dropdown-padding-x: 0.35rem;
+$dropdown-padding-y: 0.35rem;
+$dropdown-item-padding-y: 0.35rem;
+$dropdown-min-width: 12rem;
+$dropdown-border-radius: 0.5rem;
+
+$input-padding-x: 0.75rem;
+$input-padding-y: 0.5rem;
+$input-border-radius: 0.5rem;
+
+@import '../node_modules/bootstrap/scss/bootstrap';
+
+.dropdown-menu {
+  @extend .shadow-sm, .mt-1;
+}
+
+.dropdown-item {
+  // --bs-dropdown-padding-x: 1rem;
+  @extend .rounded;
+
+  // &.active,
+  // &:active {
+  //   @extend .rounded;
+  // }
+}
